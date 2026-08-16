@@ -1,0 +1,10 @@
+{
+  "id": "visual-vault",
+  "name": "Visual Vault",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Visual, graph-like navigation for note images and drawings.",
+  "author": "",
+  "authorUrl": "",
+  "isDesktopOnly": false
+}

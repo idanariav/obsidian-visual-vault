@@ -1,0 +1,130 @@
+.visual-vault-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.visual-vault-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.visual-vault-search {
+  flex: 1;
+  position: relative;
+}
+
+.visual-vault-search input {
+  width: 100%;
+}
+
+.visual-vault-search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  box-shadow: var(--shadow-s);
+}
+
+.visual-vault-search-result {
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.visual-vault-search-result:hover,
+.visual-vault-search-result.is-active {
+  background: var(--background-modifier-hover);
+}
+
+.visual-vault-toggle-group {
+  display: flex;
+  gap: 4px;
+}
+
+.visual-vault-canvas {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--background-secondary);
+  cursor: grab;
+}
+
+.visual-vault-canvas.is-panning {
+  cursor: grabbing;
+}
+
+.visual-vault-world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+.visual-vault-card {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-s);
+  overflow: hidden;
+  cursor: pointer;
+  transition: left 0.2s ease, top 0.2s ease, box-shadow 0.15s ease;
+  transform: translate(-50%, -50%);
+}
+
+.visual-vault-card:hover {
+  box-shadow: var(--shadow-l);
+}
+
+.visual-vault-card.is-center {
+  border-color: var(--interactive-accent);
+  border-width: 2px;
+  cursor: default;
+}
+
+.visual-vault-card-media {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--background-secondary);
+}
+
+.visual-vault-card-media img,
+.visual-vault-card-media svg {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.visual-vault-card-title {
+  width: 100%;
+  padding: 4px 6px;
+  font-size: var(--font-ui-smaller);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.visual-vault-card.is-fallback .visual-vault-card-media {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  padding: 8px;
+  text-align: center;
+}
