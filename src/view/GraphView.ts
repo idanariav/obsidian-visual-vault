@@ -1,11 +1,19 @@
 import { ItemView, TFile, WorkspaceLeaf } from "obsidian";
 import type VisualVaultPlugin from "../main";
 import { VIEW_TYPE_GRAPH } from "../constants";
-import { getNeighbors, type LinkToggles } from "../data/graph";
+import { getNeighbors, primaryCategory, type LinkToggles } from "../data/graph";
+import { LINK_GROUP_LABELS, type LinkGroup } from "../data/taxonomy";
 import { layoutRadial } from "./layout";
 import { renderCard } from "../ui/Card";
+import { renderEdges, type EdgeSpec } from "../ui/Edges";
 import { SearchBar } from "../ui/SearchBar";
 import { PanZoomController } from "../ui/panZoom";
+
+const TOGGLE_LABELS: Record<keyof LinkToggles, string> = {
+  incoming: "Incoming",
+  outgoing: "Outgoing",
+  ...LINK_GROUP_LABELS,
+};
 
 export class GraphView extends ItemView {
   private centerFile: TFile | null = null;
@@ -19,7 +27,12 @@ export class GraphView extends ItemView {
     this.toggles = {
       incoming: plugin.settings.defaultIncoming,
       outgoing: plugin.settings.defaultOutgoing,
-      frontmatterOnly: plugin.settings.defaultFrontmatterOnly,
+      up: plugin.settings.defaultUp,
+      down: plugin.settings.defaultDown,
+      depth: plugin.settings.defaultDepth,
+      side: plugin.settings.defaultSide,
+      supporter: plugin.settings.defaultSupporter,
+      oppose: plugin.settings.defaultOppose,
     };
   }
 
@@ -61,8 +74,8 @@ export class GraphView extends ItemView {
 
   private renderToggles(toolbar: HTMLElement): void {
     const group = toolbar.createDiv({ cls: "visual-vault-toggle-group" });
-    const addToggle = (label: string, key: keyof LinkToggles) => {
-      const btn = group.createEl("button", { text: label });
+    const addToggle = (key: keyof LinkToggles) => {
+      const btn = group.createEl("button", { text: TOGGLE_LABELS[key] });
       const refresh = () => btn.toggleClass("is-active", this.toggles[key]);
       refresh();
       btn.addEventListener("click", () => {
@@ -71,9 +84,7 @@ export class GraphView extends ItemView {
         this.render();
       });
     };
-    addToggle("Incoming", "incoming");
-    addToggle("Outgoing", "outgoing");
-    addToggle("Frontmatter", "frontmatterOnly");
+    (Object.keys(TOGGLE_LABELS) as (keyof LinkToggles)[]).forEach(addToggle);
   }
 
   async setCenter(file: TFile): Promise<void> {
@@ -82,23 +93,53 @@ export class GraphView extends ItemView {
     await this.render();
   }
 
+  private fieldsByGroup(): Record<LinkGroup, string[]> {
+    const settings = this.plugin.settings;
+    return {
+      up: settings.upFields,
+      down: settings.downFields,
+      depth: settings.depthFields,
+      side: settings.sideFields,
+      supporter: settings.supporterFields,
+      oppose: settings.opposeFields,
+    };
+  }
+
   private async render(): Promise<void> {
     this.worldEl.empty();
     if (!this.centerFile) return;
     const center = this.centerFile;
 
-    const neighbors = getNeighbors(
-      this.app,
-      center,
-      this.toggles,
-      this.plugin.settings.frontmatterLinkFields,
-    );
-    const positions = layoutRadial(
+    // Only currently-toggled-on categories reach `neighbors` at all (see
+    // getNeighbors), so a group the user has switched off never gets laid
+    // out, rendered, or has its image lazily resolved below.
+    const neighbors = getNeighbors(this.app, center, this.toggles, this.fieldsByGroup());
+    const { positions, sectors } = layoutRadial(
       center,
       neighbors,
       this.plugin.settings.ringRadius,
       this.plugin.settings.cardWidth,
     );
+
+    const positionByPath = new Map(positions.map((p) => [p.path, p]));
+    const edges: EdgeSpec[] = neighbors
+      .map((n) => {
+        const pos = positionByPath.get(n.file.path);
+        if (!pos) return null;
+        const label = n.fieldLabels.get(primaryCategory(n.categories)) ?? "";
+        return { toX: pos.x, toY: pos.y, label };
+      })
+      .filter((e): e is EdgeSpec => e !== null);
+    renderEdges(this.worldEl, edges);
+
+    // Cards are centered on their `left`/`top` via CSS `translate(-50%, -50%)`
+    // (see .visual-vault-card / .visual-vault-sector-label in styles.css), so
+    // sector.x/y can be used directly without a card-size offset.
+    for (const sector of sectors) {
+      const label = this.worldEl.createDiv({ cls: "visual-vault-sector-label", text: sector.label });
+      label.style.left = `${sector.x}px`;
+      label.style.top = `${sector.y}px`;
+    }
 
     const filesByPath = new Map<string, TFile>([[center.path, center]]);
     for (const n of neighbors) filesByPath.set(n.file.path, n.file);

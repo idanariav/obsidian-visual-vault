@@ -69,6 +69,43 @@
   transform-origin: 0 0;
 }
 
+.visual-vault-edges {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.visual-vault-edge {
+  stroke: var(--text-faint);
+  stroke-width: 1.5;
+}
+
+.visual-vault-edge-label {
+  fill: var(--text-muted);
+  font-size: 10px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  paint-order: stroke;
+  stroke: var(--background-secondary);
+  stroke-width: 3px;
+}
+
+.visual-vault-sector-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .visual-vault-card {
   position: absolute;
   display: flex;

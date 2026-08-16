@@ -71,4 +71,43 @@ describe("resolveImageSource", () => {
     const result = await resolveImageSource(app, fakeFile("Note.md") as never, DEFAULT_SETTINGS);
     expect(result).toEqual({ kind: "none" });
   });
+
+  it("prefers the Drawings field over a same-basename companion image for an Excalidraw note", async () => {
+    const app = fakeApp({
+      frontmatter: { "excalidraw-plugin": "parsed", Drawings: "[[Current.png]]" },
+      files: ["Note.md", "Note.png", "Current.png"],
+    });
+    const result = await resolveImageSource(app, fakeFile("Note.md") as never, DEFAULT_SETTINGS);
+    expect(result).toEqual({ kind: "image", file: fakeFile("Current.png"), origin: "excalidraw" });
+  });
+
+  it("prefers the Drawings field over a same-basename companion image for a Sketch Editor note with no embedded SVG", async () => {
+    const app = fakeApp({
+      frontmatter: { "sketch-editor-plugin": "parsed", Drawings: "[[Current.png]]" },
+      files: ["Note.md", "Note.png", "Current.png"],
+      content: "no drawing payload here",
+    });
+    const result = await resolveImageSource(app, fakeFile("Note.md") as never, DEFAULT_SETTINGS);
+    expect(result).toEqual({ kind: "image", file: fakeFile("Current.png"), origin: "sketch-editor" });
+  });
+
+  it("still prefers a live embedded SVG over the Drawings field for a Sketch Editor note", async () => {
+    const svg = "<svg><rect/></svg>";
+    const app = fakeApp({
+      frontmatter: { "sketch-editor-plugin": "parsed", Drawings: "[[Current.png]]" },
+      files: ["Note.md", "Current.png"],
+      content: `## Drawing\n\`\`\`svg\n${svg}\n\`\`\`\n%%`,
+    });
+    const result = await resolveImageSource(app, fakeFile("Note.md") as never, DEFAULT_SETTINGS);
+    expect(result).toEqual({ kind: "svg", svg, origin: "sketch-editor" });
+  });
+
+  it("prefers the Drawings field over the configured image field for a note with no drawing-plugin marker", async () => {
+    const app = fakeApp({
+      frontmatter: { Drawings: "[[Current.png]]", Image: "[[Stale.png]]" },
+      files: ["Note.md", "Current.png", "Stale.png"],
+    });
+    const result = await resolveImageSource(app, fakeFile("Note.md") as never, DEFAULT_SETTINGS);
+    expect(result).toEqual({ kind: "image", file: fakeFile("Current.png"), origin: "drawings" });
+  });
 });

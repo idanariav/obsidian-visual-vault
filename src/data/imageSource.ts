@@ -5,7 +5,7 @@ import { IMAGE_EXTENSIONS } from "../constants";
 import type { VisualVaultSettings } from "../settings/defaults";
 
 export type ImageSource =
-  | { kind: "image"; file: TFile; origin: "excalidraw" | "sketch-editor" | "frontmatter" }
+  | { kind: "image"; file: TFile; origin: "excalidraw" | "sketch-editor" | "frontmatter" | "drawings" }
   | { kind: "svg"; svg: string; origin: "sketch-editor" }
   | { kind: "none" };
 
@@ -29,24 +29,40 @@ function extractWikilink(value: unknown): string | null {
   return trimmed || null;
 }
 
-function resolveConfiguredImageField(app: App, file: TFile, settings: VisualVaultSettings): TFile | null {
+function resolveWikilinkField(app: App, file: TFile, fieldName: string): TFile | null {
   const fm = app.metadataCache.getFileCache(file)?.frontmatter;
-  const linktext = extractWikilink(fm?.[settings.imageField]);
+  const linktext = extractWikilink(fm?.[fieldName]);
   if (!linktext) return null;
   return app.metadataCache.getFirstLinkpathDest(linktext, file.path);
+}
+
+function resolveConfiguredImageField(app: App, file: TFile, settings: VisualVaultSettings): TFile | null {
+  return resolveWikilinkField(app, file, settings.imageField);
+}
+
+// The Drawings field is a manually-curated pointer to a note's real drawing,
+// so it wins over a same-basename companion image guess — that guess can go
+// stale (e.g. left behind after a note is detached from Excalidraw/Sketch
+// Editor, when its excalidraw-plugin/sketch-editor-plugin marker is removed
+// but the old exported image file isn't cleaned up).
+function resolveDrawingsField(app: App, file: TFile, settings: VisualVaultSettings): TFile | null {
+  return resolveWikilinkField(app, file, settings.drawingsField);
 }
 
 /**
  * Resolve which image (if any) represents a note, in priority order:
  * 1. Excalidraw — its note content is a raw scene (elements/JSON), not an
  *    image; rendering that requires the Excalidraw engine, which this plugin
- *    deliberately doesn't depend on. The auto-exported companion image is the
- *    closest thing to "the live drawing" renderable without it.
+ *    deliberately doesn't depend on. The configured Drawings field, if set,
+ *    wins over the auto-exported same-basename companion image.
  * 2. Sketch Editor — its content genuinely is an embedded SVG, so the live
- *    drawing is read and rendered directly, falling back to an exported
- *    companion image if the embedded payload is missing/unparsable.
- * 3. The configured frontmatter image field (default `Image`).
- * 4. None — caller falls back to a title-only card.
+ *    drawing is read and rendered directly (that's always current, so it
+ *    still wins over the Drawings field); falling back to the Drawings field
+ *    or a same-basename companion image if the embedded payload is
+ *    missing/unparsable.
+ * 3. The configured Drawings field, for notes with neither marker.
+ * 4. The configured frontmatter image field (default `Image`).
+ * 5. None — caller falls back to a title-only card.
  */
 export async function resolveImageSource(
   app: App,
@@ -54,7 +70,10 @@ export async function resolveImageSource(
   settings: VisualVaultSettings,
 ): Promise<ImageSource> {
   if (isExcalidrawFile(app, file)) {
-    const image = resolveImageByBasename(app, file) ?? resolveConfiguredImageField(app, file, settings);
+    const image =
+      resolveDrawingsField(app, file, settings) ??
+      resolveImageByBasename(app, file) ??
+      resolveConfiguredImageField(app, file, settings);
     if (image) return { kind: "image", file: image, origin: "excalidraw" };
   }
 
@@ -62,9 +81,15 @@ export async function resolveImageSource(
     const content = await app.vault.cachedRead(file);
     const svg = extractSketchEditorSvg(content);
     if (svg) return { kind: "svg", svg, origin: "sketch-editor" };
-    const image = resolveImageByBasename(app, file) ?? resolveConfiguredImageField(app, file, settings);
+    const image =
+      resolveDrawingsField(app, file, settings) ??
+      resolveImageByBasename(app, file) ??
+      resolveConfiguredImageField(app, file, settings);
     if (image) return { kind: "image", file: image, origin: "sketch-editor" };
   }
+
+  const drawingsImage = resolveDrawingsField(app, file, settings);
+  if (drawingsImage) return { kind: "image", file: drawingsImage, origin: "drawings" };
 
   const fmImage = resolveConfiguredImageField(app, file, settings);
   if (fmImage) return { kind: "image", file: fmImage, origin: "frontmatter" };

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getNeighbors } from "../../src/data/graph";
+import { getNeighbors, type LinkToggles } from "../../src/data/graph";
+import type { LinkGroup } from "../../src/data/taxonomy";
 
 function fakeFile(path: string) {
   const basename = path.replace(/\.md$/, "").split("/").pop()!;
@@ -27,18 +28,41 @@ function fakeApp(opts: {
   } as never;
 }
 
+const ALL_OFF: LinkToggles = {
+  incoming: false,
+  outgoing: false,
+  up: false,
+  down: false,
+  depth: false,
+  side: false,
+  supporter: false,
+  oppose: false,
+};
+
+const NO_FIELDS: Record<LinkGroup, string[]> = {
+  up: [],
+  down: [],
+  depth: [],
+  side: [],
+  supporter: [],
+  oppose: [],
+};
+
+function toggles(overrides: Partial<LinkToggles>): LinkToggles {
+  return { ...ALL_OFF, ...overrides };
+}
+
+function fields(overrides: Partial<Record<LinkGroup, string[]>>): Record<LinkGroup, string[]> {
+  return { ...NO_FIELDS, ...overrides };
+}
+
 describe("getNeighbors", () => {
   it("includes outgoing links when the outgoing toggle is on", () => {
     const app = fakeApp({
       resolvedLinks: { "Center.md": { "A.md": 1 } },
       files: ["Center.md", "A.md"],
     });
-    const neighbors = getNeighbors(
-      app,
-      fakeFile("Center.md") as never,
-      { incoming: false, outgoing: true, frontmatterOnly: false },
-      [],
-    );
+    const neighbors = getNeighbors(app, fakeFile("Center.md") as never, toggles({ outgoing: true }), NO_FIELDS);
     expect(neighbors).toHaveLength(1);
     expect(neighbors[0].file.path).toBe("A.md");
     expect(neighbors[0].categories.has("outgoing")).toBe(true);
@@ -49,12 +73,7 @@ describe("getNeighbors", () => {
       resolvedLinks: { "B.md": { "Center.md": 1 } },
       files: ["Center.md", "B.md"],
     });
-    const neighbors = getNeighbors(
-      app,
-      fakeFile("Center.md") as never,
-      { incoming: true, outgoing: false, frontmatterOnly: false },
-      [],
-    );
+    const neighbors = getNeighbors(app, fakeFile("Center.md") as never, toggles({ incoming: true }), NO_FIELDS);
     expect(neighbors).toHaveLength(1);
     expect(neighbors[0].file.path).toBe("B.md");
     expect(neighbors[0].categories.has("incoming")).toBe(true);
@@ -65,16 +84,11 @@ describe("getNeighbors", () => {
       resolvedLinks: { "Center.md": { "A.md": 1 }, "B.md": { "Center.md": 1 } },
       files: ["Center.md", "A.md", "B.md"],
     });
-    const neighbors = getNeighbors(
-      app,
-      fakeFile("Center.md") as never,
-      { incoming: false, outgoing: false, frontmatterOnly: false },
-      [],
-    );
+    const neighbors = getNeighbors(app, fakeFile("Center.md") as never, ALL_OFF, NO_FIELDS);
     expect(neighbors).toHaveLength(0);
   });
 
-  it("only follows configured frontmatter fields", () => {
+  it("only follows fields configured for an enabled taxonomy group", () => {
     const app = fakeApp({
       resolvedLinks: {},
       frontmatterLinks: {
@@ -88,11 +102,28 @@ describe("getNeighbors", () => {
     const neighbors = getNeighbors(
       app,
       fakeFile("Center.md") as never,
-      { incoming: false, outgoing: false, frontmatterOnly: true },
-      ["Topic"],
+      toggles({ up: true }),
+      fields({ up: ["Topic"] }),
     );
     expect(neighbors).toHaveLength(1);
     expect(neighbors[0].file.path).toBe("MapA.md");
+    expect(neighbors[0].categories.has("up")).toBe(true);
+    expect(neighbors[0].fieldLabels.get("up")).toBe("topic");
+  });
+
+  it("doesn't follow a group's fields when that group's toggle is off", () => {
+    const app = fakeApp({
+      resolvedLinks: {},
+      frontmatterLinks: { "Center.md": [{ key: "Opposes", link: "MapA.md" }] },
+      files: ["Center.md", "MapA.md"],
+    });
+    const neighbors = getNeighbors(
+      app,
+      fakeFile("Center.md") as never,
+      toggles({ oppose: false }),
+      fields({ oppose: ["Opposes"] }),
+    );
+    expect(neighbors).toHaveLength(0);
   });
 
   it("de-duplicates a neighbor reachable via multiple categories, keeping both tags", () => {
@@ -103,8 +134,8 @@ describe("getNeighbors", () => {
     const neighbors = getNeighbors(
       app,
       fakeFile("Center.md") as never,
-      { incoming: true, outgoing: true, frontmatterOnly: false },
-      [],
+      toggles({ incoming: true, outgoing: true }),
+      NO_FIELDS,
     );
     expect(neighbors).toHaveLength(1);
     expect(neighbors[0].categories.has("incoming")).toBe(true);
@@ -119,8 +150,8 @@ describe("getNeighbors", () => {
     const neighbors = getNeighbors(
       app,
       fakeFile("Center.md") as never,
-      { incoming: true, outgoing: true, frontmatterOnly: false },
-      [],
+      toggles({ incoming: true, outgoing: true }),
+      NO_FIELDS,
     );
     expect(neighbors).toHaveLength(0);
   });
