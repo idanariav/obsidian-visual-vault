@@ -12,6 +12,13 @@ export interface SectorLabel {
   label: string;
   x: number;
   y: number;
+  /** Angular range (degrees, same convention as `SECTOR_CENTER_DEG`) this
+   *  sector's cards are spread across — for drawing its background wedge. */
+  startDeg: number;
+  endDeg: number;
+  /** Distance from center to the outermost ring actually used, plus enough
+   *  padding to cover that ring's card radius — the wedge's outer edge. */
+  outerRadius: number;
 }
 
 export interface RadialLayout {
@@ -27,16 +34,18 @@ const CATEGORY_LABELS: Record<LinkCategory, string> = {
 
 // Angular sector (in degrees, measured clockwise from straight up) each
 // category is placed into, so every category reads as a distinct group
-// around the center rather than a single undifferentiated ring.
+// around the center rather than a single undifferentiated ring. Fixed
+// compass positions per category (up/right/down/left plus diagonals) so a
+// given relationship always renders in the same place on every note.
 const SECTOR_CENTER_DEG: Record<LinkCategory, number> = {
-  up: 0,
-  depth: 45,
-  supporter: 90,
-  incoming: 135,
-  down: 180,
-  oppose: 225,
-  outgoing: 270,
-  side: 315,
+  up: 0, // Topic — straight up
+  depth: 45, // Deep Dive — top right
+  supporter: 90, // Supports — right
+  incoming: 135, // bottom right
+  down: 180, // Components — straight down
+  outgoing: 225, // bottom left
+  oppose: 270, // Opposes — left
+  side: 315, // Exploration — top left
 };
 const SECTOR_SPREAD_DEG = 40;
 
@@ -92,17 +101,20 @@ export function layoutRadial(
   for (const [category, group] of byCategory) {
     const centerDeg = SECTOR_CENTER_DEG[category];
     const multiplier = RADIUS_MULTIPLIER[category] ?? 1;
+    const sectorStartDeg = centerDeg - SECTOR_SPREAD_DEG / 2;
+    const sectorEndDeg = centerDeg + SECTOR_SPREAD_DEG / 2;
     let index = 0;
     let ring = 0;
     let firstRingRadius = 0;
+    let outerRadius = 0;
     while (index < group.length) {
       const radius = Math.max(ringRadius * multiplier * (ring + 1), minRadius);
       if (ring === 0) firstRingRadius = radius;
+      outerRadius = radius;
       const count = Math.min(perRing(radius), group.length - index);
-      const startDeg = centerDeg - SECTOR_SPREAD_DEG / 2;
       const step = count > 1 ? SECTOR_SPREAD_DEG / (count - 1) : 0;
       for (let i = 0; i < count; i++) {
-        const deg = count === 1 ? centerDeg : startDeg + step * i;
+        const deg = count === 1 ? centerDeg : sectorStartDeg + step * i;
         const rad = (deg * Math.PI) / 180;
         positions.push({
           path: group[index].file.path,
@@ -123,6 +135,9 @@ export function layoutRadial(
       label: CATEGORY_LABELS[category],
       x: labelRadius * Math.sin(labelRad),
       y: -labelRadius * Math.cos(labelRad),
+      startDeg: sectorStartDeg,
+      endDeg: sectorEndDeg,
+      outerRadius: outerRadius + cardWidth / 2,
     });
   }
 

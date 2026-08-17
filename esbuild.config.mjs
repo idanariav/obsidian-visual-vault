@@ -1,6 +1,7 @@
 import esbuild from "esbuild";
 import process from "process";
 import builtins from "builtin-modules";
+import { copyToVault } from "./scripts/copy-to-vault.mjs";
 
 const prod = process.argv[2] === "production";
 
@@ -18,6 +19,16 @@ const context = await esbuild.context({
   define: {
     "process.env.NODE_ENV": JSON.stringify(prod ? "production" : "development"),
   },
+  plugins: [
+    {
+      name: "copy-to-vault",
+      setup(build) {
+        build.onEnd((result) => {
+          if (result.errors.length === 0) copyToVault();
+        });
+      },
+    },
+  ],
 });
 
 if (prod) {

@@ -11,6 +11,9 @@ function fakeFile(path: string) {
 function fakeApp(opts: {
   resolvedLinks: Record<string, Record<string, number>>;
   frontmatterLinks?: Record<string, Array<{ key: string; link: string }>>;
+  /** Simulates Dataview's page-field index (frontmatter + inline `field:: [[Target]]`
+   *  annotations merged) — a link-valued field is `{ path }` or `{ path }[]`. */
+  dataviewPages?: Record<string, Record<string, { path: string } | { path: string }[]>>;
   files: string[];
 }) {
   const files = new Map(opts.files.map((p) => [p, fakeFile(p)]));
@@ -25,6 +28,9 @@ function fakeApp(opts: {
       }),
       getFirstLinkpathDest: (linkpath: string) => files.get(linkpath) ?? null,
     },
+    plugins: opts.dataviewPages
+      ? { plugins: { dataview: { api: { page: (path: string) => opts.dataviewPages![path] } } } }
+      : { plugins: {} },
   } as never;
 }
 
@@ -140,6 +146,108 @@ describe("getNeighbors", () => {
     expect(neighbors).toHaveLength(1);
     expect(neighbors[0].categories.has("incoming")).toBe(true);
     expect(neighbors[0].categories.has("outgoing")).toBe(true);
+  });
+
+  it("surfaces a taxonomy group's incoming links (a note that links AT center via that field)", () => {
+    const app = fakeApp({
+      resolvedLinks: { "B.md": { "Center.md": 1 } },
+      frontmatterLinks: { "B.md": [{ key: "Supports", link: "Center.md" }] },
+      files: ["Center.md", "B.md"],
+    });
+    const neighbors = getNeighbors(
+      app,
+      fakeFile("Center.md") as never,
+      toggles({ supporter: true }),
+      fields({ supporter: ["Supports"] }),
+    );
+    expect(neighbors).toHaveLength(1);
+    expect(neighbors[0].file.path).toBe("B.md");
+    expect(neighbors[0].categories.has("supporter")).toBe(true);
+    expect(neighbors[0].categories.has("incoming")).toBe(false);
+  });
+
+  it("hides a taxonomy-tagged outgoing link even when Outgoing is on, if its own group toggle is off", () => {
+    const app = fakeApp({
+      resolvedLinks: { "Center.md": { "A.md": 1 } },
+      frontmatterLinks: { "Center.md": [{ key: "Opposes", link: "A.md" }] },
+      files: ["Center.md", "A.md"],
+    });
+    const neighbors = getNeighbors(
+      app,
+      fakeFile("Center.md") as never,
+      toggles({ outgoing: true, oppose: false }),
+      fields({ oppose: ["Opposes"] }),
+    );
+    expect(neighbors).toHaveLength(0);
+  });
+
+  it("hides a taxonomy-tagged incoming link even when Incoming is on, if its own group toggle is off", () => {
+    const app = fakeApp({
+      resolvedLinks: { "B.md": { "Center.md": 1 } },
+      frontmatterLinks: { "B.md": [{ key: "Supports", link: "Center.md" }] },
+      files: ["Center.md", "B.md"],
+    });
+    const neighbors = getNeighbors(
+      app,
+      fakeFile("Center.md") as never,
+      toggles({ incoming: true, supporter: false }),
+      fields({ supporter: ["Supports"] }),
+    );
+    expect(neighbors).toHaveLength(0);
+  });
+
+  it("classifies a neighbor by both directions when they support each other under different groups", () => {
+    const app = fakeApp({
+      resolvedLinks: { "Center.md": { "A.md": 1 }, "A.md": { "Center.md": 1 } },
+      frontmatterLinks: {
+        "Center.md": [{ key: "Supports", link: "A.md" }],
+        "A.md": [{ key: "Opposes", link: "Center.md" }],
+      },
+      files: ["Center.md", "A.md"],
+    });
+    const neighbors = getNeighbors(
+      app,
+      fakeFile("Center.md") as never,
+      toggles({ supporter: true, oppose: true }),
+      fields({ supporter: ["Supports"], oppose: ["Opposes"] }),
+    );
+    expect(neighbors).toHaveLength(1);
+    expect(neighbors[0].categories.has("supporter")).toBe(true);
+    expect(neighbors[0].categories.has("oppose")).toBe(true);
+  });
+
+  it("reads taxonomy links from Dataview when available, not just frontmatter (inline `field:: [[Target]]' body annotations)", () => {
+    const app = fakeApp({
+      resolvedLinks: { "Center.md": { "A.md": 1 } },
+      dataviewPages: { "Center.md": { supports: { path: "A.md" } } },
+      files: ["Center.md", "A.md"],
+    });
+    const neighbors = getNeighbors(
+      app,
+      fakeFile("Center.md") as never,
+      toggles({ supporter: true }),
+      fields({ supporter: ["supports"] }),
+    );
+    expect(neighbors).toHaveLength(1);
+    expect(neighbors[0].file.path).toBe("A.md");
+    expect(neighbors[0].categories.has("supporter")).toBe(true);
+  });
+
+  it("reads the incoming direction from Dataview too (a note whose own inline annotation points at center)", () => {
+    const app = fakeApp({
+      resolvedLinks: { "B.md": { "Center.md": 1 } },
+      dataviewPages: { "B.md": { supports: { path: "Center.md" } } },
+      files: ["Center.md", "B.md"],
+    });
+    const neighbors = getNeighbors(
+      app,
+      fakeFile("Center.md") as never,
+      toggles({ supporter: true }),
+      fields({ supporter: ["supports"] }),
+    );
+    expect(neighbors).toHaveLength(1);
+    expect(neighbors[0].file.path).toBe("B.md");
+    expect(neighbors[0].categories.has("supporter")).toBe(true);
   });
 
   it("never includes the center note itself", () => {

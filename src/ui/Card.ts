@@ -1,6 +1,7 @@
 import type { App, TFile } from "obsidian";
 import type { ImageSource } from "../data/imageSource";
 import type { VisualVaultSettings } from "../settings/defaults";
+import { openImageLightbox } from "./ImageLightbox";
 
 export interface CardOptions {
   file: TFile;
@@ -12,8 +13,9 @@ export interface CardOptions {
 /** Renders one card DOM node: an <img> for a resolved image, inline <svg> for
  *  a live Sketch Editor drawing, or a title-only fallback when there's none. */
 export function renderCard(app: App, container: HTMLElement, opts: CardOptions, settings: VisualVaultSettings): HTMLElement {
+  const canExpand = opts.imageSource.kind !== "none";
   const card = container.createDiv({
-    cls: `visual-vault-card${opts.isCenter ? " is-center" : ""}${opts.imageSource.kind === "none" ? " is-fallback" : ""}`,
+    cls: `visual-vault-card${opts.isCenter ? " is-center" : ""}${canExpand ? " is-expandable" : ""}${opts.imageSource.kind === "none" ? " is-fallback" : ""}`,
   });
   card.style.width = `${settings.cardWidth}px`;
   card.style.height = `${settings.cardHeight}px`;
@@ -38,8 +40,17 @@ export function renderCard(app: App, container: HTMLElement, opts: CardOptions, 
 
   card.createDiv({ cls: "visual-vault-card-title", text: opts.file.basename });
 
-  if (!opts.isCenter) {
-    card.addEventListener("click", () => opts.onClick(opts.file));
+  // A plain click expands the image/drawing; shift-click navigates to that
+  // note as the new focus instead (a no-op on the center card, which is
+  // already the focus — it only gets the expand behavior).
+  if (!opts.isCenter || canExpand) {
+    card.addEventListener("click", (evt: MouseEvent) => {
+      if (!opts.isCenter && evt.shiftKey) {
+        opts.onClick(opts.file);
+        return;
+      }
+      if (canExpand) openImageLightbox(app, opts.imageSource, opts.file.basename);
+    });
   }
 
   return card;

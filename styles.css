@@ -45,9 +45,101 @@
   background: var(--background-modifier-hover);
 }
 
+.visual-vault-history-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.visual-vault-history-controls button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .visual-vault-toggle-group {
   display: flex;
   gap: 4px;
+}
+
+.visual-vault-filter-btn.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.visual-vault-filter-btn.is-active:hover {
+  background: var(--interactive-accent-hover);
+}
+
+.visual-vault-view-filters {
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid var(--background-modifier-border);
+}
+
+.visual-vault-dropdown {
+  position: relative;
+}
+
+.visual-vault-dropdown-panel {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 20;
+  margin-top: 4px;
+  padding: 6px;
+  min-width: 180px;
+  max-width: 280px;
+  max-height: min(320px, 60vh);
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-s);
+}
+
+.visual-vault-dropdown.is-open .visual-vault-dropdown-panel {
+  display: flex;
+}
+
+.visual-vault-dropdown-panel button {
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.visual-vault-property-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: var(--background-modifier-hover);
+  font-size: var(--font-ui-smaller);
+}
+
+.visual-vault-property-chip button {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0 2px;
+  cursor: pointer;
+}
+
+.visual-vault-property-add {
+  display: flex;
+  gap: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.visual-vault-property-add input {
+  width: 90px;
 }
 
 .visual-vault-canvas {
@@ -69,23 +161,23 @@
   transform-origin: 0 0;
 }
 
-.visual-vault-edges {
+.visual-vault-overlay {
   position: absolute;
   top: 0;
   left: 0;
-  width: 0;
-  height: 0;
-  overflow: visible;
   pointer-events: none;
 }
 
+.visual-vault-wedge {
+  fill-opacity: 0.07;
+}
+
 .visual-vault-edge {
-  stroke: var(--text-faint);
   stroke-width: 1.5;
+  opacity: 0.85;
 }
 
 .visual-vault-edge-label {
-  fill: var(--text-muted);
   font-size: 10px;
   text-anchor: middle;
   dominant-baseline: middle;
@@ -97,13 +189,24 @@
 .visual-vault-sector-label {
   position: absolute;
   transform: translate(-50%, -50%);
-  color: var(--text-faint);
   font-size: var(--font-ui-smaller);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   white-space: nowrap;
-  pointer-events: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.visual-vault-sector-label:hover {
+  text-decoration: underline;
+}
+
+.visual-vault-sector-toggle {
+  display: inline-block;
+  width: 12px;
+  text-align: center;
+  font-weight: 700;
 }
 
 .visual-vault-card {
@@ -130,6 +233,10 @@
   border-color: var(--interactive-accent);
   border-width: 2px;
   cursor: default;
+}
+
+.visual-vault-card.is-center.is-expandable {
+  cursor: pointer;
 }
 
 .visual-vault-card-media {
@@ -164,4 +271,29 @@
   font-size: var(--font-ui-smaller);
   padding: 8px;
   text-align: center;
+}
+
+.visual-vault-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.8);
+  cursor: zoom-out;
+}
+
+.visual-vault-lightbox-content {
+  max-width: 90vw;
+  max-height: 90vh;
+  cursor: default;
+}
+
+.visual-vault-lightbox-content img,
+.visual-vault-lightbox-content svg {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  display: block;
 }
