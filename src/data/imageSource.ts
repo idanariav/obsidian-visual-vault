@@ -6,7 +6,7 @@ import type { VisualVaultSettings } from "../settings/defaults";
 
 export type ImageSource =
   | { kind: "image"; file: TFile; origin: "excalidraw" | "sketch-editor" | "frontmatter" | "drawings" }
-  | { kind: "svg"; svg: string; origin: "sketch-editor" }
+  | { kind: "svg"; svg: string; origin: "excalidraw" | "sketch-editor" | "frontmatter" | "drawings" }
   | { kind: "none" };
 
 /** Look for a same-basename image (e.g. "Foo.md" -> "Foo.png"), matching the
@@ -38,6 +38,23 @@ function resolveWikilinkField(app: App, file: TFile, fieldName: string): TFile |
 
 function resolveConfiguredImageField(app: App, file: TFile, settings: VisualVaultSettings): TFile | null {
   return resolveWikilinkField(app, file, settings.imageField);
+}
+
+// SVG files are rendered inline (innerHTML) rather than via <img src>: an
+// <img>-referenced SVG runs in an isolated context with no access to the
+// embedding document's CSS, so any theme-following `var(--...)` fill/stroke
+// in the export fails to resolve and paints as solid black instead of
+// falling through to the vault's actual theme colors.
+async function loadResolvedImage(
+  app: App,
+  file: TFile,
+  origin: "excalidraw" | "sketch-editor" | "frontmatter" | "drawings",
+): Promise<ImageSource> {
+  if (file.extension === "svg") {
+    const svg = await app.vault.cachedRead(file);
+    return { kind: "svg", svg, origin };
+  }
+  return { kind: "image", file, origin };
 }
 
 // The Drawings field is a manually-curated pointer to a note's real drawing,
@@ -74,7 +91,7 @@ export async function resolveImageSource(
       resolveDrawingsField(app, file, settings) ??
       resolveImageByBasename(app, file) ??
       resolveConfiguredImageField(app, file, settings);
-    if (image) return { kind: "image", file: image, origin: "excalidraw" };
+    if (image) return loadResolvedImage(app, image, "excalidraw");
   }
 
   if (isSketchEditorFile(app, file)) {
@@ -85,14 +102,14 @@ export async function resolveImageSource(
       resolveDrawingsField(app, file, settings) ??
       resolveImageByBasename(app, file) ??
       resolveConfiguredImageField(app, file, settings);
-    if (image) return { kind: "image", file: image, origin: "sketch-editor" };
+    if (image) return loadResolvedImage(app, image, "sketch-editor");
   }
 
   const drawingsImage = resolveDrawingsField(app, file, settings);
-  if (drawingsImage) return { kind: "image", file: drawingsImage, origin: "drawings" };
+  if (drawingsImage) return loadResolvedImage(app, drawingsImage, "drawings");
 
   const fmImage = resolveConfiguredImageField(app, file, settings);
-  if (fmImage) return { kind: "image", file: fmImage, origin: "frontmatter" };
+  if (fmImage) return loadResolvedImage(app, fmImage, "frontmatter");
 
   return { kind: "none" };
 }
