@@ -357,6 +357,24 @@
   font-size: var(--font-ui-small);
 }
 
+.visual-vault-hover-preview {
+  position: fixed;
+  z-index: 1000;
+  padding: 4px;
+  border-radius: 6px;
+  background: var(--background-primary);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.visual-vault-hover-preview img,
+.visual-vault-hover-preview svg {
+  display: block;
+  max-width: 252px;
+  max-height: 252px;
+  object-fit: contain;
+}
+
 .visual-vault-list-empty {
   padding: 16px 12px;
   color: var(--text-muted);

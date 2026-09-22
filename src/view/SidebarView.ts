@@ -26,6 +26,11 @@ export class SidebarView extends ItemView {
    *  abandoned file) checks this after each await and bails rather than
    *  appending to a list that's already moved on to a different note. */
   private renderToken = 0;
+  /** Paths of the currently-rendered center note + its neighbors, so a
+   *  metadata change (e.g. an Image/Drawings field just added to one of
+   *  them) can trigger a re-render without waiting for the next file-open. */
+  private renderedPaths = new Set<string>();
+  private hoverPreviewEl: HTMLElement | null = null;
 
   constructor(leaf: WorkspaceLeaf, private plugin: VisualVaultPlugin) {
     super(leaf);
@@ -62,8 +67,21 @@ export class SidebarView extends ItemView {
     this.listEl = root.createDiv({ cls: "visual-vault-sidebar-list" });
 
     this.registerEvent(this.app.workspace.on("file-open", (file) => void this.onFileOpen(file)));
+    // Same event vaultIndex uses to invalidate its imageSource cache (see
+    // main.ts) — react to it here too so a field added to the center note or
+    // a currently-listed neighbor shows up without switching notes away and
+    // back.
+    this.registerEvent(
+      this.app.metadataCache.on("resolve", (file) => {
+        if (this.renderedPaths.has(file.path)) void this.render();
+      }),
+    );
 
     await this.onFileOpen(this.app.workspace.getActiveFile());
+  }
+
+  async onClose(): Promise<void> {
+    this.hideHoverPreview();
   }
 
   private renderToggles(toolbar: HTMLElement): void {
@@ -110,15 +128,18 @@ export class SidebarView extends ItemView {
 
   private async render(): Promise<void> {
     const token = ++this.renderToken;
+    this.hideHoverPreview();
     this.listEl.empty();
 
     const file = this.currentFile;
     if (!file) {
+      this.renderedPaths.clear();
       this.listEl.createDiv({ cls: "visual-vault-list-empty", text: "Open a note to see its Visual Vault neighbors." });
       return;
     }
 
     const neighbors = getNeighbors(this.app, file, this.toggles, this.fieldsByGroup());
+    this.renderedPaths = new Set([file.path, ...neighbors.map((n) => n.file.path)]);
     const groups = buildNeighborGroups(neighbors);
 
     if (groups.length === 0) {
@@ -163,8 +184,50 @@ export class SidebarView extends ItemView {
         break;
     }
 
+    if (imageSource.kind !== "none") {
+      media.addEventListener("mouseenter", () => this.showHoverPreview(media, imageSource));
+      media.addEventListener("mouseleave", () => this.hideHoverPreview());
+    }
+
     item.createDiv({ cls: "visual-vault-list-item-title", text: file.basename });
     item.addEventListener("click", () => void this.navigateTo(file));
+  }
+
+  /** Floating enlarged copy of a thumbnail, shown only while the pointer is
+   *  over the thumbnail itself (not the row/title) — appended to
+   *  document.body rather than positioned in-place because the list's
+   *  `overflow-y: auto` would otherwise clip anything bigger than the row. */
+  private showHoverPreview(media: HTMLElement, imageSource: ImageSource): void {
+    this.hideHoverPreview();
+
+    const preview = document.body.createDiv({ cls: "visual-vault-hover-preview" });
+    if (imageSource.kind === "image") {
+      const img = preview.createEl("img");
+      img.src = this.app.vault.getResourcePath(imageSource.file);
+    } else if (imageSource.kind === "svg") {
+      preview.innerHTML = imageSource.svg;
+    }
+    this.hoverPreviewEl = preview;
+
+    const rect = media.getBoundingClientRect();
+    const margin = 8;
+    const maxSize = 260;
+    const previewRect = preview.getBoundingClientRect();
+    const width = Math.min(previewRect.width || maxSize, maxSize);
+    const height = Math.min(previewRect.height || maxSize, maxSize);
+
+    const spaceRight = window.innerWidth - rect.right;
+    const placeLeft = spaceRight < width + margin;
+    const left = placeLeft ? rect.left - width - margin : rect.right + margin;
+    const top = Math.max(margin, Math.min(rect.top + rect.height / 2 - height / 2, window.innerHeight - height - margin));
+
+    preview.style.left = `${Math.max(margin, left)}px`;
+    preview.style.top = `${top}px`;
+  }
+
+  private hideHoverPreview(): void {
+    this.hoverPreviewEl?.remove();
+    this.hoverPreviewEl = null;
   }
 
   private async navigateTo(file: TFile): Promise<void> {
