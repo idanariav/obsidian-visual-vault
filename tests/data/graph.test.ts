@@ -250,6 +250,30 @@ describe("getNeighbors", () => {
     expect(neighbors[0].categories.has("supporter")).toBe(true);
   });
 
+  it("excludes a non-markdown target, even though it's a resolvable outgoing link", () => {
+    // Reproduces linking both a companion note (e.g. via a Drawings
+    // frontmatter field) and that note's own exported image embed
+    // (![[Foo.png]]) in the same note's body: both are outgoing links, but
+    // only the note should surface as a neighbor.
+    const files = new Map<string, { path: string; basename: string; extension: string }>([
+      ["Center.md", { path: "Center.md", basename: "Center", extension: "md" }],
+      ["A.md", { path: "A.md", basename: "A", extension: "md" }],
+      ["A.png", { path: "A.png", basename: "A", extension: "png" }],
+    ]);
+    const app = {
+      vault: { getAbstractFileByPath: (path: string) => files.get(path) ?? null },
+      metadataCache: {
+        resolvedLinks: { "Center.md": { "A.md": 1, "A.png": 1 } },
+        getFileCache: () => ({ frontmatterLinks: [] }),
+        getFirstLinkpathDest: (linkpath: string) => files.get(linkpath) ?? null,
+      },
+      plugins: { plugins: {} },
+    } as never;
+    const neighbors = getNeighbors(app, fakeFile("Center.md") as never, toggles({ outgoing: true }), NO_FIELDS);
+    expect(neighbors).toHaveLength(1);
+    expect(neighbors[0].file.path).toBe("A.md");
+  });
+
   it("never includes the center note itself", () => {
     const app = fakeApp({
       resolvedLinks: { "Center.md": { "Center.md": 1 } },

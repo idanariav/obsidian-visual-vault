@@ -81,7 +81,13 @@ export function getNeighbors(
   const add = (path: string, category: LinkCategory, field?: string) => {
     if (path === center.path) return;
     const file = app.vault.getAbstractFileByPath(path);
-    if (!isTFile(file)) return;
+    // Neighbors are notes, not attachments — a note commonly both links a
+    // companion note (e.g. via a Drawings frontmatter field) and separately
+    // embeds that note's exported image in its body (![[Foo.png]]); without
+    // this check both resolve to distinct files that share a basename and
+    // show up as duplicate-looking rows, and the image file itself has no
+    // frontmatter for resolveImageSource to resolve a thumbnail from anyway.
+    if (!isTFile(file) || file.extension !== "md") return;
     let neighbor = byPath.get(path);
     if (!neighbor) {
       neighbor = { file, categories: new Set(), fieldLabels: new Map() };
