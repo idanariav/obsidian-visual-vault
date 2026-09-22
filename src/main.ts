@@ -1,9 +1,10 @@
 import { Plugin, TFile, WorkspaceLeaf } from "obsidian";
 import { GraphView } from "./view/GraphView";
+import { SidebarView } from "./view/SidebarView";
 import { VisualVaultSettingsTab } from "./settings/SettingsTab";
 import { DEFAULT_SETTINGS, VisualVaultSettings } from "./settings/defaults";
 import { VaultIndex } from "./data/vaultIndex";
-import { VIEW_TYPE_GRAPH, RIBBON_ICON } from "./constants";
+import { VIEW_TYPE_GRAPH, VIEW_TYPE_SIDEBAR, RIBBON_ICON } from "./constants";
 
 export default class VisualVaultPlugin extends Plugin {
   settings!: VisualVaultSettings;
@@ -14,12 +15,18 @@ export default class VisualVaultPlugin extends Plugin {
     this.vaultIndex = new VaultIndex(this.app);
 
     this.registerView(VIEW_TYPE_GRAPH, (leaf) => new GraphView(leaf, this));
+    this.registerView(VIEW_TYPE_SIDEBAR, (leaf) => new SidebarView(leaf, this));
 
     this.addRibbonIcon(RIBBON_ICON, "Open Visual Vault", () => this.activateView());
     this.addCommand({
       id: "open-visual-vault",
       name: "Open Visual Vault",
       callback: () => this.activateView(),
+    });
+    this.addCommand({
+      id: "open-visual-vault-sidebar",
+      name: "Open Visual Vault sidebar",
+      callback: () => this.activateSidebarView(),
     });
 
     this.addSettingTab(new VisualVaultSettingsTab(this.app, this));
@@ -56,6 +63,18 @@ export default class VisualVaultPlugin extends Plugin {
     }
     const leaf: WorkspaceLeaf = this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: VIEW_TYPE_GRAPH, active: true });
+    this.app.workspace.revealLeaf(leaf);
+  }
+
+  async activateSidebarView(): Promise<void> {
+    const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_SIDEBAR);
+    if (existing.length) {
+      this.app.workspace.revealLeaf(existing[0]);
+      return;
+    }
+    const leaf = this.app.workspace.getRightLeaf(false);
+    if (!leaf) return;
+    await leaf.setViewState({ type: VIEW_TYPE_SIDEBAR, active: true });
     this.app.workspace.revealLeaf(leaf);
   }
 

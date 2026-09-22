@@ -29,6 +29,9 @@ export interface VisualVaultSettings {
   ringRadius: number;
   /** Zoom level a newly-opened graph view starts at (1 = 100%). */
   defaultZoom: number;
+  /** Thumbnail size in px for the sidebar neighbor list — cardWidth/cardHeight
+   *  are sized for the radial graph and too large for a narrow list row. */
+  sidebarThumbnailSize: number;
 }
 
 export const DEFAULT_SETTINGS: VisualVaultSettings = {
@@ -52,4 +55,5 @@ export const DEFAULT_SETTINGS: VisualVaultSettings = {
   cardHeight: 160,
   ringRadius: 260,
   defaultZoom: 1,
+  sidebarThumbnailSize: 36,
 };

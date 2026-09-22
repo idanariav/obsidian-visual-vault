@@ -1,4 +1,5 @@
 export const VIEW_TYPE_GRAPH = "visual-vault-graph-view";
+export const VIEW_TYPE_SIDEBAR = "visual-vault-sidebar-view";
 export const PLUGIN_ID = "visual-vault";
 
 // Frontmatter flags that mark a note as owned by another drawing plugin. Read

@@ -1,6 +1,6 @@
 import type { App, TFile } from "obsidian";
 import { dataviewFieldLinks, getDataviewApi } from "./dataview";
-import { LINK_GROUPS, type LinkGroup } from "./taxonomy";
+import { LINK_GROUPS, LINK_GROUP_LABELS, type LinkGroup } from "./taxonomy";
 
 export type LinkToggles = { incoming: boolean; outgoing: boolean } & Record<LinkGroup, boolean>;
 
@@ -14,6 +14,15 @@ export const CATEGORY_PREFERENCE: LinkCategory[] = [
   "outgoing",
   ...LINK_GROUPS,
 ];
+
+// Shared display label per category — the single source of truth for both
+// the radial view (layout.ts, GraphView's toggle labels) and the sidebar
+// list view, so a category reads the same everywhere.
+export const CATEGORY_LABELS: Record<LinkCategory, string> = {
+  incoming: "Incoming",
+  outgoing: "Outgoing",
+  ...LINK_GROUP_LABELS,
+};
 
 export interface Neighbor {
   file: TFile;

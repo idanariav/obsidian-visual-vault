@@ -169,5 +169,18 @@ export class VisualVaultSettingsTab extends PluginSettingTab {
           }
         }),
       );
+
+    new Setting(containerEl)
+      .setName("Sidebar thumbnail size (px)")
+      .setDesc("Thumbnail size for the compact sidebar neighbor list.")
+      .addText((t) =>
+        t.setValue(String(this.plugin.settings.sidebarThumbnailSize)).onChange(async (v) => {
+          const n = parseInt(v, 10);
+          if (Number.isFinite(n) && n > 0) {
+            this.plugin.settings.sidebarThumbnailSize = n;
+            await this.plugin.saveSettings();
+          }
+        }),
+      );
   }
 }
